@@ -1,0 +1,14 @@
+1. When a process constantly waits for condition to be satisfied 
+   before executing for example checking if there are enough memory.
+   In a concurrent OS it is a waste of resources from the constant
+   looping. It can also get stuck in a deadlock when waiting for
+   an event that will never happen.
+2. Sleep will cause the thread to stop executing
+   Yield will cause the thread to stop if there are any other 
+   process or thread which is more important. If there isn't, 
+   then the thread will continue to run.
+3. A lock is binary semaphore which only can take two values. 
+   Only the thread that acquire the lock can release it. 
+   Semaphores can have multiple processes of the same thread.
+   A deadlock is when two or more processes is waiting on each other
+   to finish in order to use the resources. 

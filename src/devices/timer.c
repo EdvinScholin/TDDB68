@@ -7,6 +7,9 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "lib/kernel/list.h"
+#include "threads/malloc.h"
+#include "lib/user/syscall.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -16,6 +19,15 @@
 #if TIMER_FREQ > 1000
 #error TIMER_FREQ <= 1000 recommended
 #endif
+
+struct sleeping_thread {
+  int64_t end_tick;
+  struct thread *t;
+  struct list_elem elem;
+};
+
+/* A queue of threads which have been put to sleep from the CPU. */
+static struct list sleeping_queue;
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
@@ -44,6 +56,8 @@ timer_init (void)
   outb (0x40, count >> 8);
 
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+  list_init(&sleeping_queue);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -92,15 +106,49 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
+/* Compare function. */
+bool cmp_less_func(const struct list_elem *a, const struct list_elem *b, void *aux) {
+  struct sleeping_thread *t1 = list_entry(a, struct sleeping_thread, elem);
+  struct sleeping_thread *t2 = list_entry(b, struct sleeping_thread, elem);
+  return t1->end_tick < t2->end_tick;
+}
+
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  if (ticks <= 0) {
+    return;
+  }
 
-  ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  ASSERT (intr_get_level() == INTR_ON);
+  printf("HELLOOOOOOO");
+  
+  struct sleeping_thread *new_s_thread;
+  struct list_elem elem;
+
+
+  new_s_thread->end_tick = timer_ticks() + ticks;
+  new_s_thread->t = thread_current();
+  
+  new_s_thread->elem = elem;
+
+  list_insert_ordered(&sleeping_queue, &elem, &cmp_less_func, NULL);
+
+  intr_disable();
+  thread_block();
+  intr_enable();
+  
+  
+
+  
+
+  // int64_t start = timer_ticks ();
+
+  // ASSERT (intr_get_level () == INTR_ON);
+  // while (timer_elapsed (start) < ticks) 
+  //   thread_yield ();
+  
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -137,6 +185,14 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  struct sleeping_thread *s_thread = list_entry(list_begin(&sleeping_queue), struct sleeping_thread, elem);
+  
+  if (s_thread->end_tick >= timer_ticks()) {
+    thread_unblock(s_thread->t);
+    list_remove(&s_thread->elem);
+  }
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
