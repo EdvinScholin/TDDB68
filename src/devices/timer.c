@@ -122,23 +122,35 @@ timer_sleep (int64_t ticks)
   }
 
   ASSERT (intr_get_level() == INTR_ON);
-  printf("HELLOOOOOOO");
+  //printf("\nBefore malloc\n");
   
-  struct sleeping_thread *new_s_thread;
-  struct list_elem elem;
+  struct sleeping_thread *new_s_thread = (struct sleeping_thread*) malloc(sizeof(struct sleeping_thread));
+  struct list_elem *element = (struct list_elem*) malloc(sizeof(struct list_elem));
+
+  //printf("\nafter malloc\n");
 
 
   new_s_thread->end_tick = timer_ticks() + ticks;
+
+  //printf("\nafter end_tick\n");
   new_s_thread->t = thread_current();
   
-  new_s_thread->elem = elem;
+  new_s_thread->elem = (*element);
 
-  list_insert_ordered(&sleeping_queue, &elem, &cmp_less_func, NULL);
+  list_insert_ordered(&sleeping_queue, &new_s_thread->elem, cmp_less_func, NULL);
+
+  free(element);
 
   intr_disable();
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  //printf("\nbefore thread_block\n");
   thread_block();
+  //printf("\nafter thread_block\n");
   intr_enable();
-  
+
+  ASSERT (intr_get_level () == INTR_ON);
   
 
   
@@ -191,6 +203,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   if (s_thread->end_tick >= timer_ticks()) {
     thread_unblock(s_thread->t);
     list_remove(&s_thread->elem);
+    free(s_thread);
   }
 
 }
