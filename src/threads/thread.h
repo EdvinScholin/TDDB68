@@ -101,6 +101,10 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+#ifdef USERPROG
+struct file *opened_files[130];
+#endif
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */

@@ -8,8 +8,6 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "lib/kernel/list.h"
-#include "threads/malloc.h"
-#include "lib/user/syscall.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -47,6 +45,8 @@ static void real_time_sleep (int64_t num, int32_t denom);
 void
 timer_init (void) 
 {
+  list_init(&sleeping_queue);
+
   /* 8254 input frequency divided by TIMER_FREQ, rounded to
      nearest. */
   uint16_t count = (1193180 + TIMER_FREQ / 2) / TIMER_FREQ;
@@ -56,8 +56,6 @@ timer_init (void)
   outb (0x40, count >> 8);
 
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-
-  list_init(&sleeping_queue);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -117,50 +115,20 @@ bool cmp_less_func(const struct list_elem *a, const struct list_elem *b, void *a
 void
 timer_sleep (int64_t ticks) 
 {
-  if (ticks <= 0) {
-    return;
-  }
-
   ASSERT (intr_get_level() == INTR_ON);
-  //printf("\nBefore malloc\n");
+
+  struct sleeping_thread new_s_thread;
+
+  new_s_thread.end_tick = timer_ticks() + ticks;
+  new_s_thread.t = thread_current();
   
-  struct sleeping_thread *new_s_thread = (struct sleeping_thread*) malloc(sizeof(struct sleeping_thread));
-  struct list_elem *element = (struct list_elem*) malloc(sizeof(struct list_elem));
-
-  //printf("\nafter malloc\n");
-
-
-  new_s_thread->end_tick = timer_ticks() + ticks;
-
-  //printf("\nafter end_tick\n");
-  new_s_thread->t = thread_current();
+  enum intr_level old_level;
+  old_level = intr_disable ();
   
-  new_s_thread->elem = (*element);
-
-  list_insert_ordered(&sleeping_queue, &new_s_thread->elem, cmp_less_func, NULL);
-
-  free(element);
-
-  intr_disable();
-
-  ASSERT (intr_get_level () == INTR_OFF);
-
-  //printf("\nbefore thread_block\n");
+  list_insert_ordered(&sleeping_queue, &(new_s_thread.elem), &cmp_less_func, NULL);
   thread_block();
-  //printf("\nafter thread_block\n");
-  intr_enable();
 
-  ASSERT (intr_get_level () == INTR_ON);
-  
-
-  
-
-  // int64_t start = timer_ticks ();
-
-  // ASSERT (intr_get_level () == INTR_ON);
-  // while (timer_elapsed (start) < ticks) 
-  //   thread_yield ();
-  
+  intr_set_level (old_level);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -198,14 +166,22 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
-  struct sleeping_thread *s_thread = list_entry(list_begin(&sleeping_queue), struct sleeping_thread, elem);
-  
-  if (s_thread->end_tick >= timer_ticks()) {
-    thread_unblock(s_thread->t);
-    list_remove(&s_thread->elem);
-    free(s_thread);
-  }
+  enum intr_level old_level;
+  old_level = intr_disable ();
 
+  struct sleeping_thread *s_thread;
+  while (!list_empty(&sleeping_queue)) {
+    s_thread = list_entry(list_begin(&sleeping_queue), struct sleeping_thread, elem);
+    
+    if (s_thread->end_tick <= timer_ticks()) {
+      thread_unblock(s_thread->t);
+      list_pop_front(&sleeping_queue);
+    }
+    else {
+      break;
+    }
+  }
+  intr_set_level (old_level);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

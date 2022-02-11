@@ -6,7 +6,6 @@
 #include "threads/init.h"
 
 static void syscall_handler (struct intr_frame *);
-struct file *opened_files[130] = {NULL};
 
 void
 syscall_init (void) 
@@ -17,7 +16,6 @@ syscall_init (void)
 
 void halt(void) {
   filesys_done();
-  //kanske behövs något mer med vår array-implementation för fd:s.
   power_off();
 }
 
@@ -71,14 +69,14 @@ int read(int fd, const void *buffer, unsigned size) {
 
 int write(int fd, const void *buffer, unsigned size) {
   if (fd == 1) {
-    putbuf(buffer, size); // förmodligen inte rätt
+    putbuf(buffer, size);
     return size;
   }
 
   else {
     if (fd > 1 && fd < 130) {
       if (opened_files[fd] != NULL) {
-        return file_write(opened_files[fd], buffer, size); //kan bli lite konverteringsfel från off_t
+        return file_write(opened_files[fd], buffer, size);
       }
     }
   }
@@ -86,25 +84,13 @@ int write(int fd, const void *buffer, unsigned size) {
 }
 
 void exit(int status) {
-  for (int i = 2; i < 130; i++) {
-    if (opened_files[i] != NULL) {
-      //close(i);
-      opened_files[i] = NULL;
-    }
-  }
-  filesys_done();
-
   thread_exit();
 }
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  //printf ("system call!\n");
-
   int syscall_nr = *(int*) f->esp;
-
-  //printf("syscall number is %d\n", syscall_nr);
 
   switch(syscall_nr) {
     case SYS_HALT:

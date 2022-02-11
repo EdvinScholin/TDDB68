@@ -278,6 +278,12 @@ thread_exit (void)
 
 #ifdef USERPROG
   process_exit ();
+  for (int i = 2; i < 130; i++) {
+    if (opened_files[i] != NULL) {
+      close(i);
+      opened_files[i] = NULL;
+    }
+  }
 #endif
 
   /* Just set our status to dying and schedule another process.
