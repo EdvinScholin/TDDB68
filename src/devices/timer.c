@@ -115,6 +115,10 @@ bool cmp_less_func(const struct list_elem *a, const struct list_elem *b, void *a
 void
 timer_sleep (int64_t ticks) 
 {
+  if (ticks <= 0) {
+    return;
+  }
+
   ASSERT (intr_get_level() == INTR_ON);
 
   struct sleeping_thread new_s_thread;

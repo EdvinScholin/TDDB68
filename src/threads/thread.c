@@ -276,15 +276,15 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
-#ifdef USERPROG
-  process_exit ();
-  for (int i = 2; i < 130; i++) {
-    if (opened_files[i] != NULL) {
-      close(i);
-      opened_files[i] = NULL;
+  #ifdef USERPROG
+    process_exit ();
+    for (int i = 2; i < 130; i++) {
+      if (opened_files[i] != NULL) {
+        close(i);
+        opened_files[i] = NULL;
+      }
     }
-  }
-#endif
+  #endif
 
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
