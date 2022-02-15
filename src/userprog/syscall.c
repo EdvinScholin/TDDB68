@@ -4,6 +4,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/init.h"
+#include "userprog/process.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -11,7 +12,6 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  
 }
 
 void halt(void) {
@@ -85,6 +85,14 @@ int write(int fd, const void *buffer, unsigned size) {
 
 void exit(int status) {
   thread_exit();
+}
+
+pid_t exec(const char *cmd_line) {
+
+  // Behöver vi locka filsystemet??
+  pid_t pid = process_execute(cmd_line);
+  
+  return pid;
 }
 
 static void

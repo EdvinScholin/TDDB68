@@ -28,29 +28,70 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  // char *fn_copy; // ska vi ersätta fn_copy eller ska vi göra exakt som vi gör med fn_copy?
+  // tid_t tid;
+  
+
+  // /* Make a copy of FILE_NAME.
+  //    Otherwise there's a race between the caller and load(). */
+  // fn_copy = palloc_get_page (0);
+  // if (fn_copy == NULL)
+  //   return TID_ERROR;
+  // strlcpy (fn_copy, file_name, PGSIZE);
+
+  // /* Create a new thread to execute FILE_NAME. */
+  // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  // if (tid == TID_ERROR)
+  //   palloc_free_page (fn_copy); 
+  // return tid;
+
+  struct parent_child *pc = NULL;
+  //char *fn_copy; // ska vi ersätta fn_copy eller ska vi göra exakt som vi gör med fn_copy?
   tid_t tid;
+  
+  
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  pc = palloc_get_page (0);
+  if (pc == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (pc, file_name, PGSIZE);
+
+  // här kör vi sema_down
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, pc);
+
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (pc); 
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *file_name_) // vi kanske kan ändra namn på file_name så vi vet att det är vår parent_child
 {
-  char *file_name = file_name_;
+  // char *file_name = file_name_; // file_name kommer bli vår parentchild struct, ska vi ändra childs pid här?
+  // struct intr_frame if_;
+  // bool success;
+
+  // /* Initialize interrupt frame and load executable. */
+  // memset (&if_, 0, sizeof if_);
+  // if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  // if_.cs = SEL_UCSEG;
+  // if_.eflags = FLAG_IF | FLAG_MBS;
+  // success = load (file_name, &if_.eip, &if_.esp);
+
+  // // nu har vi vår tid så vi kan köra sema_up
+
+  // /* If load failed, quit. */
+  // palloc_free_page (file_name);
+  // if (!success) 
+  //   thread_exit ();
+
+  struct parent_child *pc = file_name_; // file_name kommer bli vår parentchild struct, ska vi ändra childs pid här?
   struct intr_frame if_;
   bool success;
 
@@ -59,10 +100,13 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (pc, &if_.eip, &if_.esp);
 
+  // nu har vi vår tid så vi kan köra sema_up
+  child_thread->pc = pc;
+  
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (pc);
   if (!success) 
     thread_exit ();
 

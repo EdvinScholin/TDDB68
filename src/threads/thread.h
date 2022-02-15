@@ -95,6 +95,8 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct list child_threads;          /* List of a thread's children. */
+    struct parent_child *pc;            /* Struct for the parent and child relationship. */
 #endif
 
     /* Owned by thread.c. */
@@ -102,7 +104,7 @@ struct thread
   };
 
 #ifdef USERPROG
-struct file *opened_files[130];
+   struct file *opened_files[130] = {NULL};
 #endif
 
 /* If false (default), use round-robin scheduler.

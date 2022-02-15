@@ -8,4 +8,11 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
 
+struct parent_child {
+    int exit_status;
+    int alive_count;
+    thread *parent_thread;
+    pid_t child_pid;
+}
+
 #endif /* userprog/process.h */
