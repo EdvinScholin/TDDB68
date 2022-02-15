@@ -45,26 +45,32 @@ process_execute (const char *file_name)
   //   palloc_free_page (fn_copy); 
   // return tid;
 
-  struct parent_child *pc = NULL;
+  struct parent_child *pc = (struct parent_child*) malloc(sizeof(struct parent_child));
   //char *fn_copy; // ska vi ersätta fn_copy eller ska vi göra exakt som vi gör med fn_copy?
   tid_t tid;
-  
-  
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  pc = palloc_get_page (0);
-  if (pc == NULL)
+  pc->fn_copy = palloc_get_page (0);
+  if (pc->fn_copy == NULL)
     return TID_ERROR;
-  strlcpy (pc, file_name, PGSIZE);
+  strlcpy (pc->fn_copy, file_name, PGSIZE);
+
+  pc->parent_thread = thread_current(); 
+  sema_init(&(pc->await_child), 0);
+  pc->exit_status = -1; // behöver vi initialisera?
+  pc->alive_count = 1; // behöver vi initialisera?
 
   // här kör vi sema_down
+
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, pc);
 
   if (tid == TID_ERROR)
     palloc_free_page (pc); 
+
+  
   return tid;
 }
 
@@ -100,15 +106,20 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (pc, &if_.eip, &if_.esp);
-
-  // nu har vi vår tid så vi kan köra sema_up
-  child_thread->pc = pc;
+  success = load (pc->fn_copy, &if_.eip, &if_.esp);
+  
   
   /* If load failed, quit. */
-  palloc_free_page (pc);
+  palloc_free_page (pc->fn_copy);
   if (!success) 
     thread_exit ();
+  else {
+    pc->alive_count = 2;
+    thread_current()->pc = pc;
+    list_insert(pc->parent_thread->child_threads, thread_current()->elem);
+  }
+
+  // nu har vi vår tid så vi kan köra sema_up
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

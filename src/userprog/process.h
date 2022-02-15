@@ -13,6 +13,9 @@ struct parent_child {
     int alive_count;
     thread *parent_thread;
     pid_t child_pid;
+    char *fn_copy;
+
+    struct semaphore await_child;
 }
 
 #endif /* userprog/process.h */
