@@ -153,6 +153,13 @@ syscall_handler (struct intr_frame *f UNUSED)
       exit(0);
       break;
     }
+
+    case SYS_EXEC: 
+    {
+      const char *cmd_line = *(char**) (f->esp+4);
+      exec(cmd_line);
+      break;
+    }
     default:
     {
       printf("unkown syscall...");

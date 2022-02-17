@@ -16,7 +16,7 @@
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
-#include "threads/vaddr.h"
+#include "threads/vaddr.h"  
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -60,11 +60,11 @@ process_execute (const char *file_name)
   sema_init(&(pc->await_child), 0);
 
   // här kör vi sema_down
-  sema_down(&(pc->await_child));
+  
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, pc);
-
+  sema_down(&(pc->await_child));
 
   if (tid == TID_ERROR)
     palloc_free_page (pc->fn_copy); 
@@ -110,14 +110,17 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
   /* If load failed, quit. */
   palloc_free_page (pc->fn_copy);
   if (!success) {
-    thread_exit();
     sema_up(&(pc->await_child));
+    thread_exit();
+    
   }
   else {
     pc->exit_status = 0;
     pc->alive_count = 2;
-    thread_current()->pc = pc;
-    list_insert(&(pc->parent_thread->child_threads), &(thread_current()->elem));
+    struct thread *t = thread_current();
+    t->pc = pc;
+    //thread_current()->pc = pc;
+    list_push_back(&(pc->parent_thread->child_threads), &(thread_current()->elem));
     sema_up(&(pc->await_child));
   }
 
