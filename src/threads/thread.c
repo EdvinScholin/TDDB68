@@ -274,6 +274,7 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+  //printf("--------IN THREAD EXIT-----------");
   ASSERT (!intr_context ());
 
   #ifdef USERPROG
@@ -444,7 +445,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
 #ifdef USERPROG
-  list_init(&t->child_threads);
+  list_init(&(t->child_threads));
   t->pc = NULL;
 #endif
 }

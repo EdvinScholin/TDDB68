@@ -58,17 +58,16 @@ process_execute (const char *file_name)
 
   pc->parent_thread = thread_current(); 
   sema_init(&(pc->await_child), 0);
-  pc->exit_status = -1; // behöver vi initialisera?
-  pc->alive_count = 1; // behöver vi initialisera?
 
   // här kör vi sema_down
-
+  sema_down(&(pc->await_child));
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, pc);
 
+
   if (tid == TID_ERROR)
-    palloc_free_page (pc); 
+    palloc_free_page (pc->fn_copy); 
 
   
   return tid;
@@ -108,18 +107,19 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (pc->fn_copy, &if_.eip, &if_.esp);
   
-  
   /* If load failed, quit. */
   palloc_free_page (pc->fn_copy);
-  if (!success) 
-    thread_exit ();
+  if (!success) {
+    thread_exit();
+    sema_up(&(pc->await_child));
+  }
   else {
+    pc->exit_status = 0;
     pc->alive_count = 2;
     thread_current()->pc = pc;
-    list_insert(pc->parent_thread->child_threads, thread_current()->elem);
+    list_insert(&(pc->parent_thread->child_threads), &(thread_current()->elem));
+    sema_up(&(pc->await_child));
   }
-
-  // nu har vi vår tid så vi kan köra sema_up
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
