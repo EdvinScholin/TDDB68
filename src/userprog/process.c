@@ -33,10 +33,6 @@ process_execute (const char *file_name)
   tid_t tid;
   lock_init(&(pc->lock));
 
-  lock_acquire(&(pc->lock));
-  pc->alive_count = 2;
-  lock_release(&(pc->lock));
-
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -62,12 +58,6 @@ process_execute (const char *file_name)
 
   pc->child_pid = tid;
 
-  if (!pc->success) {
-    free(pc);
-    tid = TID_ERROR;
-    return tid;
-  }
-
   list_push_back(&(pc->parent_thread->child_threads), &(thread_current()->elem));
 
   return tid;
@@ -88,8 +78,10 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (pc->fn_copy, &if_.eip, &if_.esp);
-  
-  pc->success = success;
+
+  lock_acquire(&(pc->lock));
+  pc->alive_count = 2;
+  lock_release(&(pc->lock));
 
   thread_current()->pc = pc;
 
