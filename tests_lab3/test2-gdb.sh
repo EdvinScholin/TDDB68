@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rättningsskript
-cd src/userprog
+cd ../src/userprog
 make
 cd build
 pintos-mkdisk fs.dsk 2
