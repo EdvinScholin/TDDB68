@@ -105,7 +105,7 @@ struct thread
   };
 
 #ifdef USERPROG
-   struct file *opened_files[130]; //= {NULL};
+   struct file *opened_files[130] = {NULL};
 #endif
 
 /* If false (default), use round-robin scheduler.

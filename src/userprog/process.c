@@ -28,23 +28,6 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  // char *fn_copy; // ska vi ersätta fn_copy eller ska vi göra exakt som vi gör med fn_copy?
-  // tid_t tid;
-  
-
-  // /* Make a copy of FILE_NAME.
-  //    Otherwise there's a race between the caller and load(). */
-  // fn_copy = palloc_get_page (0);
-  // if (fn_copy == NULL)
-  //   return TID_ERROR;
-  // strlcpy (fn_copy, file_name, PGSIZE);
-
-  // /* Create a new thread to execute FILE_NAME. */
-  // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  // if (tid == TID_ERROR)
-  //   palloc_free_page (fn_copy); 
-  // return tid;
-
   struct parent_child *pc = (struct parent_child*) malloc(sizeof(struct parent_child));
   char* fn_copy;
   tid_t tid;
@@ -85,7 +68,6 @@ process_execute (const char *file_name)
     return tid;
   }
 
-
   list_push_back(&(pc->parent_thread->child_threads), &(thread_current()->elem));
 
   return tid;
@@ -96,25 +78,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_) // vi kanske kan ändra namn på file_name så vi vet att det är vår parent_child
 {
-  // char *file_name = file_name_; // file_name kommer bli vår parentchild struct, ska vi ändra childs pid här?
-  // struct intr_frame if_;
-  // bool success;
-
-  // /* Initialize interrupt frame and load executable. */
-  // memset (&if_, 0, sizeof if_);
-  // if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
-  // if_.cs = SEL_UCSEG;
-  // if_.eflags = FLAG_IF | FLAG_MBS;
-  // success = load (file_name, &if_.eip, &if_.esp);
-
-  // // nu har vi vår tid så vi kan köra sema_up
-
-  // /* If load failed, quit. */
-  // palloc_free_page (file_name);
-  // if (!success) 
-  //   thread_exit ();
-
-  struct parent_child *pc = file_name_; // file_name kommer bli vår parentchild struct, ska vi ändra childs pid här?
+  struct parent_child *pc = file_name_;
   struct intr_frame if_;
   bool success;
 
@@ -171,19 +135,6 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  // if(cur->pc != NULL) {
-  //   lock_acquire(&(cur->pc->lock));
-  //   cur->pc->alive_count--;
-  //   lock_release(&(cur->pc->lock));
-
-  //   if (cur->pc->alive_count == 0) {
-  //     free(cur->pc);
-  //   }
-  //   else {
-  //     printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
-  //   }
-  // }
-
   if (cur->pc == NULL) {
     return;
   } 
@@ -192,49 +143,26 @@ process_exit (void)
   cur->pc->alive_count--;
   lock_release(&(cur->pc->lock));
 
-  if (cur->pc->alive_count == -1) {
-    //free(cur->pc);
-    return;
-  }
-
-  else if (cur->pc->alive_count == 0) {
+  if (cur->pc->alive_count == 0) {
     free(cur->pc);
   }
   else {
     printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
   }
   
-  //struct thread *t;
+  struct thread *t;
   while (!list_empty(&cur->child_threads)) {
-    struct thread *t = list_entry(list_begin(&cur->child_threads), struct thread, elem);
+    t = list_entry(list_begin(&cur->child_threads), struct thread, elem);
     
-    lock_acquire(&t->pc->lock);
+    //lock_acquire(&t->pc->lock);
     t->pc->alive_count--;
-    lock_release(&t->pc->lock);
+    //lock_release(&t->pc->lock);
 
     if (t->pc->alive_count == 0) {
       list_pop_front(&t->child_threads);
       free(t->pc);
     }
   }
-  // struct list_elem *e, *next;
-  // for (e = list_begin (&cur->child_threads); e =! list_end(&cur->child_threads);
-  //       e = next)
-  //       {
-  //         struct thread *rel = list_entry(e, struct thread, elem);
-  //         next = list_remove(e);
-  //         lock_acquire(&rel->pc->lock);
-  //         rel->pc->alive_count--;
-  //         if (rel->pc->alive_count == 0)
-  //         {
-  //           list_remove(e);
-  //           free(rel->pc);
-  //         }
-  //         else
-  //         {
-  //           lock_release(&rel->pc->lock);
-  //         }
-  //       }
 
   
   /* Destroy the current process's page directory and switch back

@@ -274,7 +274,6 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  //printf("--------IN THREAD EXIT-----------");
   ASSERT (!intr_context ());
 
   #ifdef USERPROG
