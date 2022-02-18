@@ -155,7 +155,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXEC: 
     {
       const char *cmd_line = *(char**) (f->esp+4);
-      exec(cmd_line);
+      f->eax = exec(cmd_line);
       break;
     }
     default:

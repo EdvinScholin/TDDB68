@@ -214,9 +214,28 @@ process_exit (void)
 
     if (t->pc->alive_count == 0) {
       list_pop_front(&t->child_threads);
-      free(&t->pc);
+      free(t->pc);
     }
   }
+  // struct list_elem *e, *next;
+  // for (e = list_begin (&cur->child_threads); e =! list_end(&cur->child_threads);
+  //       e = next)
+  //       {
+  //         struct thread *rel = list_entry(e, struct thread, elem);
+  //         next = list_remove(e);
+  //         lock_acquire(&rel->pc->lock);
+  //         rel->pc->alive_count--;
+  //         if (rel->pc->alive_count == 0)
+  //         {
+  //           list_remove(e);
+  //           free(rel->pc);
+  //         }
+  //         else
+  //         {
+  //           lock_release(&rel->pc->lock);
+  //         }
+  //       }
+
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
