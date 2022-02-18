@@ -155,7 +155,6 @@ process_exit (void)
       free(t->pc);
     }
   }
-
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
