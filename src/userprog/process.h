@@ -17,8 +17,10 @@ struct parent_child {
     struct thread *parent_thread;
     pid_t child_pid;
     char *fn_copy;
+    bool success;
 
     struct semaphore await_child;
+    struct lock lock;
 };
 
 #endif /* userprog/process.h */

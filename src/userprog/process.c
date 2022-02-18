@@ -46,30 +46,48 @@ process_execute (const char *file_name)
   // return tid;
 
   struct parent_child *pc = (struct parent_child*) malloc(sizeof(struct parent_child));
-  //char *fn_copy; // ska vi ersätta fn_copy eller ska vi göra exakt som vi gör med fn_copy?
+  char* fn_copy;
   tid_t tid;
+  lock_init(&(pc->lock));
+
+  lock_acquire(&(pc->lock));
+  pc->alive_count = 2;
+  lock_release(&(pc->lock));
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  pc->fn_copy = palloc_get_page (0);
-  if (pc->fn_copy == NULL)
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy (pc->fn_copy, file_name, PGSIZE);
+  strlcpy (fn_copy, file_name, PGSIZE);
+
+  pc->fn_copy = fn_copy;
 
   pc->parent_thread = thread_current(); 
-  sema_init(&(pc->await_child), 0);
-
-  // här kör vi sema_down
-  
+  sema_init(&(pc->await_child), 0);  
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, pc);
+  
   sema_down(&(pc->await_child));
 
-  if (tid == TID_ERROR)
-    palloc_free_page (pc->fn_copy); 
+  if (tid == TID_ERROR) {
+    palloc_free_page (fn_copy); 
+    free(pc);
+    return tid;
+  }
 
-  
+  pc->child_pid = tid;
+
+  if (!pc->success) {
+    free(pc);
+    tid = TID_ERROR;
+    return tid;
+  }
+
+
+  list_push_back(&(pc->parent_thread->child_threads), &(thread_current()->elem));
+
   return tid;
 }
 
@@ -107,22 +125,19 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (pc->fn_copy, &if_.eip, &if_.esp);
   
+  pc->success = success;
+
+  thread_current()->pc = pc;
+
   /* If load failed, quit. */
   palloc_free_page (pc->fn_copy);
   if (!success) {
+    thread_current()->pc->exit_status = -1;
     sema_up(&(pc->await_child));
     thread_exit();
-    
   }
-  else {
-    pc->exit_status = 0;
-    pc->alive_count = 2;
-    struct thread *t = thread_current();
-    t->pc = pc;
-    //thread_current()->pc = pc;
-    list_push_back(&(pc->parent_thread->child_threads), &(thread_current()->elem));
-    sema_up(&(pc->await_child));
-  }
+  
+  sema_up(&(pc->await_child));
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -156,6 +171,53 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  // if(cur->pc != NULL) {
+  //   lock_acquire(&(cur->pc->lock));
+  //   cur->pc->alive_count--;
+  //   lock_release(&(cur->pc->lock));
+
+  //   if (cur->pc->alive_count == 0) {
+  //     free(cur->pc);
+  //   }
+  //   else {
+  //     printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
+  //   }
+  // }
+
+  if (cur->pc == NULL) {
+    return;
+  } 
+
+  lock_acquire(&(cur->pc->lock));
+  cur->pc->alive_count--;
+  lock_release(&(cur->pc->lock));
+
+  if (cur->pc->alive_count == -1) {
+    //free(cur->pc);
+    return;
+  }
+
+  else if (cur->pc->alive_count == 0) {
+    free(cur->pc);
+  }
+  else {
+    printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
+  }
+  
+  //struct thread *t;
+  while (!list_empty(&cur->child_threads)) {
+    struct thread *t = list_entry(list_begin(&cur->child_threads), struct thread, elem);
+    
+    lock_acquire(&t->pc->lock);
+    t->pc->alive_count--;
+    lock_release(&t->pc->lock);
+
+    if (t->pc->alive_count == 0) {
+      list_pop_front(&t->child_threads);
+      free(&t->pc);
+    }
+  }
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

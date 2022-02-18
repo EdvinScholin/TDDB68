@@ -84,14 +84,12 @@ int write(int fd, const void *buffer, unsigned size) {
 }
 
 void exit(int status) {
+  thread_current()->pc->exit_status = status;
   thread_exit();
 }
 
 pid_t exec(const char *cmd_line) {
-
-  // Behöver vi locka filsystemet??
   pid_t pid = process_execute(cmd_line);
-  
   return pid;
 }
 

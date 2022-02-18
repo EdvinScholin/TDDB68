@@ -92,11 +92,12 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    struct list child_threads;          /* List of a thread's children. */
+    struct parent_child *pc;            /* Struct for the parent and child relationship. */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    struct list child_threads;          /* List of a thread's children. */
-    struct parent_child *pc;            /* Struct for the parent and child relationship. */
 #endif
 
     /* Owned by thread.c. */
