@@ -1,2 +1,4 @@
 *.o
 !spec/*.o
+*.json
+!spec/*.json
