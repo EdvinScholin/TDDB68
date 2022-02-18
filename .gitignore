@@ -2,3 +2,11 @@
 !spec/*.o
 *.json
 !spec/*.json
+src/examples/lab1test
+src/examples/lab1test2
+src/examples/lab3test1
+src/examples/lab3test2
+src/examples/lab4test1
+src/examples/libc.a
+src/examples/printf
+src/examples/recursor_ng
