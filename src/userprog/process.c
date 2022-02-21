@@ -145,10 +145,7 @@ process_exit (void)
   struct thread *t;
   while (!list_empty(&cur->child_threads)) {
     t = list_entry(list_begin(&cur->child_threads), struct thread, elem);
-    
-    //lock_acquire(&t->pc->lock);
     t->pc->alive_count--;
-    //lock_release(&t->pc->lock);
 
     if (t->pc->alive_count == 0) {
       list_pop_front(&t->child_threads);
