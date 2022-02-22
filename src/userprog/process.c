@@ -287,12 +287,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   char* token, *save_ptr;
   int argc = 0;
-  char **argv[33] = {NULL}; // Limit to 32 arguments, last is NULL.
+  char *argv[33] = {NULL}; // Limit to 32 arguments, last is NULL.
   int arg_size = 0;
 
   // Tydligen ska man börja med sista argumentet i stacken så behövde göra två for loopar
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
-    *argv[argc] = token;
+    argv[argc] = token;
     argc++;
 
     if (argc > 32) // The limit of arguments is 32
@@ -302,35 +302,34 @@ load (const char *file_name, void (**eip) (void), void **esp)
   // argc - 1 för att sista kommer vara NULL. Vi kommer dock sätta en NULL pointer i nästa for loop
   // enligt deras bild.
   for (int pos = argc - 1; pos >= 0; pos--) {
-    arg_size = strlen(argv[pos]);
-    *esp -= (arg_size + 1);             // Set stack pointer to correct place in stack
-    *argv[pos] = *esp;                  // Save what place the arguments is stored in stack
+    arg_size = strlen(argv[pos]) + 1;
+    *esp -= arg_size;                   // Set stack pointer to correct place in stack
     memcpy(*esp, argv[pos], arg_size);  // Add arguments to stack
+    argv[pos] = *esp;                   // Save what place the arguments is stored in stack
   }
 
-  int alignment = ((int)*esp) % 4;
+  unsigned alignment = ((unsigned)*esp) % 4;
   *esp -= alignment; // Adjust the stack pointer so it is divisible by 4
 
   for (int pos = argc; pos >= 0; pos--) {
     arg_size = sizeof(char*);
-    *esp -= (arg_size + 1);
-    memcpy(*esp, argv[pos], arg_size);
+    *esp -= arg_size;
+    memcpy(*esp, &argv[pos], arg_size);
   }
 
   void **argv_addr = *esp; // Pointing to start of argv, argv[0]
   arg_size = sizeof(char**);
-  *esp -= (arg_size + 1);
-  memcpy(*esp, argv_addr, arg_size); // Pushing argv to stack
+  *esp -= arg_size;
+  memcpy(*esp, &argv_addr, arg_size); // Pushing argv to stack
 
   arg_size = sizeof(int);
-  *esp -= (arg_size + 1);
-  memcpy(*esp, argc, arg_size); // Pushing argc to stack
+  *esp -= arg_size;
+  memcpy(*esp, &argc, arg_size); // Pushing argc to stack
 
+  void* ret_addr;
   arg_size = sizeof(void(*)());
-  *esp -= (arg_size + 1);
-  //memcpy(*esp, void(*)(), arg_size); // hur ska man pusha denna??
-
-  /* -------------- Our code ---------------*/
+  *esp -= arg_size;
+  memcpy(*esp, &ret_addr, arg_size); // Pushing return adress;
 
    /* Uncomment the following line to print some debug
      information. This will be useful when you debug the program
