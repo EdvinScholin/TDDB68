@@ -117,7 +117,23 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  struct thread *cur = thread_current();
+  struct parent_child *pc;
+
+  struct thread *t;
+  struct list_elem *e;
+  for (e = list_begin(&cur->child_threads); e != list_end(&cur->child_threads); e = list_next(e)) {
+    t = list_entry(e, struct thread, elem);
+    
+    if (t->pc->child_pid = child_tid) {
+      break;
+    }
+  }
+
+  int exit_status = -1;
+  if (cur->)
+
+  return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -290,7 +306,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   char *argv[33] = {NULL}; // Limit to 32 arguments, last is NULL.
   int arg_size = 0;
 
-  // Tydligen ska man börja med sista argumentet i stacken så behövde göra två for loopar
+  // Tokenize the string of arguments
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
     argv[argc] = token;
     argc++;
@@ -334,7 +350,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
    /* Uncomment the following line to print some debug
      information. This will be useful when you debug the program
      stack.*/
-#define STACK_DEBUG
+// #define STACK_DEBUG
 
 #ifdef STACK_DEBUG
   printf("*esp is %p\nstack contents:\n", *esp);
