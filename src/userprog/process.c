@@ -115,24 +115,29 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
   struct thread *cur = thread_current();
   struct parent_child *pc;
+  int exit_status = -1;
 
   struct thread *t;
   struct list_elem *e;
   for (e = list_begin(&cur->child_threads); e != list_end(&cur->child_threads); e = list_next(e)) {
     t = list_entry(e, struct thread, elem);
     
-    if (t->pc->child_pid = child_tid) {
-      break;
+    if (t->pc->child_pid == child_tid) { //kanske krävs en en &&
+      if (t->pc != NULL) {
+        if (t->pc->alive_count == 2) {
+          sema_down(&t->pc->await_child); //kanske cur
+        }
+        exit_status = t->pc->exit_status;
+        t->pc->exit_status = -1;
+        return exit_status;
+      }
     }
   }
-
-  int exit_status = -1;
-  if (cur->)
-
+  
   return exit_status;
 }
 
@@ -156,6 +161,7 @@ process_exit (void)
   }
   else {
     printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
+    sema_up(&(cur->pc->await_child)); // Kanske ska vara här
   }
   
   struct thread *t;

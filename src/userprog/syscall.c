@@ -5,6 +5,7 @@
 #include "threads/thread.h"
 #include "threads/init.h"
 #include "userprog/process.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -12,6 +13,31 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+}
+
+void validate_pointer(const void *p) {
+  if (pagedir_get_page(thread_current()->pagedir, p) != NULL && is_user_vaddr(p)) {
+    return;
+  }
+
+  exit(-1);
+}
+
+void validate_string(const char* string) {
+  if (string == NULL) {
+    exit(-1);
+  }
+  else {
+    for (char* str = string; str!='/0'; str++) {
+      validate_pointer(str);
+    }
+  }
+}
+
+void validate_buffer(void* buffer, unsigned size) {
+  for (unsigned i = 0; i < size; i++) {
+    validate_pointer(buffer+i);
+  }
 }
 
 void halt(void) {
@@ -54,7 +80,6 @@ int read(int fd, const void *buffer, unsigned size) {
       buffer++;
     }
     
-    
     return size; // förmodligen inte rätt
   }
   else {
@@ -96,6 +121,7 @@ pid_t exec(const char *cmd_line) {
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+  validate_pointer(f->esp);
   int syscall_nr = *(int*) f->esp;
 
   switch(syscall_nr) {
@@ -107,7 +133,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_CREATE:
     {
-      const char *file = *(char**) (f->esp+4); //file?? ska vi char istället för void? kanske assert?
+      validate_pointer(f->esp+4);
+      validate_pointer(f->esp+8);
+      const char *file = *(char**) (f->esp+4);
+      validate_string(file);
       unsigned size = *(unsigned*) (f->esp+8);
       f->eax = create(file, size);
       break;
@@ -115,13 +144,16 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_OPEN:
     {
+      validate_pointer(f->esp+4);
       const void *file = *(void**) (f->esp+4);
+      validate_string(file);
       f->eax = open(file);
       break;
     }
 
     case SYS_CLOSE:
     {
+      validate_pointer(f->esp+4);
       int fd = *(int*) (f->esp+4);
       close(fd);
       break;
@@ -129,18 +161,27 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_READ:
     {
+      validate_pointer(f->esp+4);
+      validate_pointer(f->esp+8);
+      validate_pointer(f->esp+12);
       int fd = *(int*) (f->esp+4);
       const void *buf = *(void**) (f->esp+8);
       unsigned size = *(unsigned*) (f->esp+12);
+      validate_buffer(buf, size);
+
       f->eax = read(fd, buf, size);
       break;
     }
     
     case SYS_WRITE:
     {
+      validate_pointer(f->esp+4);
+      validate_pointer(f->esp+8);
+      validate_pointer(f->esp+12);
       int fd = *(int*) (f->esp+4);
       const void *buf = *(void**) (f->esp+8);
       unsigned size = *(unsigned*) (f->esp+12);
+      validate_buffer(buf, size);
       
       f->eax = write(fd, buf, size);
       break;
@@ -154,7 +195,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_EXEC: 
     {
+      validate_pointer(f->esp+4);
       const char *cmd_line = *(char**) (f->esp+4);
+      validate_string(cmd_line);
       f->eax = exec(cmd_line);
       break;
     }
