@@ -41,7 +41,7 @@ void validate_buffer(void* buffer, unsigned size) {
 }
 
 void halt(void) {
-  filesys_done();
+  //filesys_done();
   power_off();
 }
 
@@ -80,12 +80,12 @@ int read(int fd, const void *buffer, unsigned size) {
       buffer++;
     }
     
-    return size; // förmodligen inte rätt
+    return size; 
   }
   else {
     if (fd > 1 && fd < 130) {
       if (opened_files[fd] != NULL) {
-        return file_read(opened_files[fd], buffer, size); //kan bli lite konverteringsfel från off_t
+        return file_read(opened_files[fd], buffer, size);
       }
     }
   }

@@ -29,7 +29,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   struct parent_child *pc = (struct parent_child*) malloc(sizeof(struct parent_child));
-  char* fn_copy;
+  char* fn_copy, *token, *save_ptr, *new_str;
   tid_t tid;
   lock_init(&(pc->lock));
 
@@ -45,8 +45,8 @@ process_execute (const char *file_name)
   pc->parent_thread = thread_current(); 
   sema_init(&(pc->await_child), 0);  
 
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, pc);
+  new_str = strtok_r(file_name, " ", &save_ptr);
+  tid = thread_create(new_str, PRI_DEFAULT, start_process, pc);
   
   sema_down(&(pc->await_child));
 
@@ -126,8 +126,8 @@ process_wait (tid_t child_tid)
   for (e = list_begin(&cur->child_threads); e != list_end(&cur->child_threads); e = list_next(e)) {
     t = list_entry(e, struct thread, elem);
     
-    if (t->pc->child_pid == child_tid) { //kanske krävs en en &&
-      if (t->pc != NULL) {
+    if (t->pc != NULL) {
+      if (t->pc->child_pid == child_tid) { //kanske krävs en en &&
         if (t->pc->alive_count == 2) {
           sema_down(&t->pc->await_child); //kanske cur
         }
@@ -356,7 +356,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
    /* Uncomment the following line to print some debug
      information. This will be useful when you debug the program
      stack.*/
-// #define STACK_DEBUG
+//#define STACK_DEBUG
 
 #ifdef STACK_DEBUG
   printf("*esp is %p\nstack contents:\n", *esp);
