@@ -274,14 +274,15 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+  struct thread* t = thread_current();
   ASSERT (!intr_context ());
 
   #ifdef USERPROG
     process_exit ();
     for (int i = 2; i < 130; i++) {
-      if (opened_files[i] != NULL) {
+      if (t->opened_files[i] != NULL) {
         close(i);
-        opened_files[i] = NULL;
+        t->opened_files[i] = NULL;
       }
     }
   #endif

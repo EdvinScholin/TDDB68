@@ -97,16 +97,14 @@ struct thread
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
+    struct file *opened_files[130];
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
-
-#ifdef USERPROG
-   struct file *opened_files[130];
-#endif
+   
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

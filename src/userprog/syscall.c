@@ -16,22 +16,28 @@ syscall_init (void)
 }
 
 void validate_pointer(const void *p) {
-  if (pagedir_get_page(thread_current()->pagedir, p) != NULL && is_user_vaddr(p)) {
+  if (is_user_vaddr(p) && pagedir_get_page(thread_current()->pagedir, p) != NULL) {
     return;
   }
-
   exit(-1);
 }
 
 void validate_string(const char* string) {
-  if (string == NULL) {
+  // if (string == NULL) {
+  //   exit(-1);
+  // }
+  // else {
+  //   for (char* str = string; str!='/0'; str++) {
+  //     validate_pointer(str);
+  //   }
+  // }
+  if (string == NULL) { // Funkar bättre men funkar inte helt
     exit(-1);
   }
-  else {
-    for (char* str = string; str!='/0'; str++) {
-      validate_pointer(str);
-    }
-  }
+  validate_pointer(string);
+  while(*(string++) != '\0') {
+    validate_pointer(string);
+  } 
 }
 
 void validate_buffer(void* buffer, unsigned size) {
@@ -41,7 +47,6 @@ void validate_buffer(void* buffer, unsigned size) {
 }
 
 void halt(void) {
-  //filesys_done();
   power_off();
 }
 
@@ -50,13 +55,15 @@ bool create(const char *file, unsigned initial_size) {
 }
 
 int open(const char *file) {
+  struct thread* t = thread_current();
   int fd = -1;
+
   for (int i = 2; i < 130; i++) {
-    if (opened_files[i] == NULL) {
+    if (t->opened_files[i] == NULL) {
       struct file* opened_file = filesys_open(file);
       if (opened_file != NULL) {
         fd = i;
-        opened_files[fd] = opened_file;
+        t->opened_files[fd] = opened_file;
       }
       break;
     }
@@ -65,15 +72,19 @@ int open(const char *file) {
 }
 
 void close(int fd) {
+  struct thread* t = thread_current();
+
   if (fd > 1 && fd < 130) {
-    if (opened_files[fd] != NULL) {
-      file_close(opened_files[fd]);
-      opened_files[fd] = NULL;
+    if (t->opened_files[fd] != NULL) {
+      file_close(t->opened_files[fd]);
+      t->opened_files[fd] = NULL;
     }
   }
 }
 
 int read(int fd, const void *buffer, unsigned size) {
+  struct thread* t = thread_current();
+
   if (fd == 0) {
     for (unsigned i = 0; i < size ;i++) {
       *(uint8_t*) buffer = input_getc();
@@ -84,8 +95,8 @@ int read(int fd, const void *buffer, unsigned size) {
   }
   else {
     if (fd > 1 && fd < 130) {
-      if (opened_files[fd] != NULL) {
-        return file_read(opened_files[fd], buffer, size);
+      if (t->opened_files[fd] != NULL) {
+        return file_read(t->opened_files[fd], buffer, size);
       }
     }
   }
@@ -93,6 +104,8 @@ int read(int fd, const void *buffer, unsigned size) {
 }
 
 int write(int fd, const void *buffer, unsigned size) {
+  struct thread* t = thread_current();
+
   if (fd == 1) {
     putbuf(buffer, size);
     return size;
@@ -100,8 +113,8 @@ int write(int fd, const void *buffer, unsigned size) {
 
   else {
     if (fd > 1 && fd < 130) {
-      if (opened_files[fd] != NULL) {
-        return file_write(opened_files[fd], buffer, size);
+      if (t->opened_files[fd] != NULL) {
+        return file_write(t->opened_files[fd], buffer, size);
       }
     }
   }
@@ -116,6 +129,10 @@ void exit(int status) {
 pid_t exec(const char *cmd_line) {
   pid_t pid = process_execute(cmd_line);
   return pid;
+}
+
+int wait(pid_t pid) {
+  return process_wait(pid);
 }
 
 static void
@@ -189,7 +206,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_EXIT: 
     {
-      exit(0);
+      validate_pointer(f->esp+4);
+      int status = *(int*) (f->esp+4);
+      exit(status);
       break;
     }
 
@@ -201,6 +220,15 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = exec(cmd_line);
       break;
     }
+
+    case SYS_WAIT:
+    {
+      validate_pointer(f->esp+4);
+      pid_t pid = *(pid_t*) (f->esp+4);
+      f->eax = wait(pid);
+      break;
+    }
+
     default:
     {
       printf("unkown syscall...");
