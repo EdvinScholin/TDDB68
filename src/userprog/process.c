@@ -33,6 +33,10 @@ process_execute (const char *file_name)
   tid_t tid;
   lock_init(&(pc->lock));
 
+  lock_acquire(&(pc->lock));
+  pc->alive_count = 2;
+  lock_release(&(pc->lock));
+
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -79,12 +83,8 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (pc->fn_copy, &if_.eip, &if_.esp);
 
-  lock_acquire(&(pc->lock));
-  pc->alive_count = 2;
-  lock_release(&(pc->lock));
 
   thread_current()->pc = pc;
-
   /* If load failed, quit. */
   palloc_free_page (pc->fn_copy);
   if (!success) {
@@ -138,37 +138,6 @@ process_wait (tid_t child_tid)
     }
   }
   
-  // struct thread *current_thread = thread_current();
-  // struct parent_child *child_rel = NULL;
-
-  // struct thread *t;
-  // struct list_elem *e;
-  // for (e = list_begin (&current_thread->child_threads); e != list_end (&current_thread->child_threads);
-  //  e = list_next (e)) {
-  //   t = list_entry (e, struct thread, elem);
-
-  //   if (t->pc->child_pid == child_tid) {
-  //     child_rel = t->pc;
-  //     break;
-  //   }
-  // }
-
-  // int exit_status = -1;
-  // if (child_rel != NULL) {
-
-  //   lock_acquire(&child_rel->lock);
-  //   int alive_count = child_rel->alive_count;
-  //   lock_release(&child_rel->lock);
-
-  //   if (alive_count == 2){
-  //     sema_down(&child_rel->await_child);
-
-  //   }
-
-  //   exit_status = child_rel->exit_status;
-  //   child_rel->exit_status = -1;
-  // }
-
   return exit_status;
 }
 
