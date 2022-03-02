@@ -29,7 +29,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   struct parent_child *pc = (struct parent_child*) malloc(sizeof(struct parent_child));
-  char* fn_copy, *token, *save_ptr, *new_str;
+  char* fn_copy, *token, *save_ptr, *new_str, *string_copy;
   tid_t tid;
   lock_init(&(pc->lock));
 
@@ -40,18 +40,21 @@ process_execute (const char *file_name)
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
+  string_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (string_copy, file_name, PGSIZE);
 
   pc->fn_copy = fn_copy;
 
   pc->parent_thread = thread_current(); 
   sema_init(&(pc->await_child), 0);  
 
-  new_str = strtok_r(file_name, " ", &save_ptr);
+  new_str = strtok_r(string_copy, " ", &save_ptr);
   tid = thread_create(new_str, PRI_DEFAULT, start_process, pc);
-  
+  // tid = thread_create(file_name, PRI_DEFAULT, start_process, pc);
+
   sema_down(&(pc->await_child));
 
   if (tid == TID_ERROR) {
@@ -117,7 +120,6 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
 int
 process_wait (tid_t child_tid) 
 {
-  
   // printf("IN PROCESS_WAIT\n");
   struct thread *cur = thread_current();
   struct parent_child *pc;
