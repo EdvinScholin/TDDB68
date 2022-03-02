@@ -138,6 +138,37 @@ process_wait (tid_t child_tid)
     }
   }
   
+  // struct thread *current_thread = thread_current();
+  // struct parent_child *child_rel = NULL;
+
+  // struct thread *t;
+  // struct list_elem *e;
+  // for (e = list_begin (&current_thread->child_threads); e != list_end (&current_thread->child_threads);
+  //  e = list_next (e)) {
+  //   t = list_entry (e, struct thread, elem);
+
+  //   if (t->pc->child_pid == child_tid) {
+  //     child_rel = t->pc;
+  //     break;
+  //   }
+  // }
+
+  // int exit_status = -1;
+  // if (child_rel != NULL) {
+
+  //   lock_acquire(&child_rel->lock);
+  //   int alive_count = child_rel->alive_count;
+  //   lock_release(&child_rel->lock);
+
+  //   if (alive_count == 2){
+  //     sema_down(&child_rel->await_child);
+
+  //   }
+
+  //   exit_status = child_rel->exit_status;
+  //   child_rel->exit_status = -1;
+  // }
+
   return exit_status;
 }
 
@@ -148,9 +179,8 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  if (cur->pc == NULL) {
-    return;
-  } 
+  if (cur->pc != NULL) {
+    
 
   lock_acquire(&(cur->pc->lock));
   cur->pc->alive_count--;
@@ -169,10 +199,13 @@ process_exit (void)
     t = list_entry(list_begin(&cur->child_threads), struct thread, elem);
     t->pc->alive_count--;
 
+
     if (t->pc->alive_count == 0) {
       list_pop_front(&t->child_threads);
       free(t->pc);
     }
+  } 
+
   }
   
   /* Destroy the current process's page directory and switch back
