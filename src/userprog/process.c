@@ -117,25 +117,44 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
 int
 process_wait (tid_t child_tid) 
 {
+  
+  // printf("IN PROCESS_WAIT\n");
   struct thread *cur = thread_current();
   struct parent_child *pc;
   int exit_status = -1;
 
+
   struct thread *t;
   struct list_elem *e;
   for (e = list_begin(&cur->child_threads); e != list_end(&cur->child_threads); e = list_next(e)) {
+    // printf("in loop\n");
     t = list_entry(e, struct thread, elem);
-    
-    if (t->pc != NULL) {
-      if (t->pc->child_pid == child_tid) { //kanske krävs en en &&
-        if (t->pc->alive_count == 2) {
-          sema_down(&t->pc->await_child); //kanske cur
-        }
-        exit_status = t->pc->exit_status;
-        t->pc->exit_status = -1;
-        return exit_status;
-      }
+    exit_status = t->exit_status;
+
+    if(exit_status != -1) {
+      // printf("in if\n");
+      t->exit_status = -1;
+      sema_down(&(t->thread_wait));
     }
+
+
+    return exit_status;
+    
+  //   printf("LOOP\n");
+  //   if (t->pc != NULL) {
+  //     printf("FIRST IF\n");
+  //     if (t->pc->child_pid == child_tid) { //kanske krävs en en &&
+  //       printf("SECOND IF\n");
+  //       if (t->pc->exit_status != -1) {
+  //         printf("THIRD IF\n");
+          
+
+  //       }
+  //       // exit_status = t->pc->exit_status;
+  //       // t->pc->exit_status = -1;
+  //       // return exit_status;
+  //     }
+  //   }
   }
   
   return exit_status;
@@ -148,8 +167,12 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  // printf("BERFORE SEMA UP IN PROCESS_EXIT\n");
+  sema_up(&(cur->thread_wait));
+  
+
   if (cur->pc != NULL) {
-    
+  sema_up(&(cur->pc->parent_thread->thread_wait));  
 
   lock_acquire(&(cur->pc->lock));
   cur->pc->alive_count--;
@@ -162,6 +185,7 @@ process_exit (void)
     printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
     sema_up(&(cur->pc->await_child)); // Kanske ska vara här
   }
+  
   
   struct thread *t;
   while (!list_empty(&cur->child_threads)) {

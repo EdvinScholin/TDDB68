@@ -276,7 +276,6 @@ thread_exit (void)
 {
   struct thread* t = thread_current();
   ASSERT (!intr_context ());
-
   #ifdef USERPROG
     process_exit ();
     for (int i = 2; i < 130; i++) {
@@ -446,6 +445,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
 #ifdef USERPROG
   list_init(&(t->child_threads));
+  sema_init(&(t->thread_wait), 0);
   t->pc = NULL;
 #endif
 }

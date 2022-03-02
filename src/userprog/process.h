@@ -17,6 +17,7 @@ struct parent_child {
     struct thread *parent_thread;
     pid_t child_pid;
     char *fn_copy;
+    bool child_wait;
 
     struct semaphore await_child;
     struct lock lock;
