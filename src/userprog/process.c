@@ -48,12 +48,10 @@ process_execute (const char *file_name)
 
   pc->fn_copy = fn_copy;
 
-  pc->parent_thread = thread_current(); 
   sema_init(&(pc->await_child), 0);  
 
   new_str = strtok_r(string_copy, " ", &save_ptr);
   tid = thread_create(new_str, PRI_DEFAULT, start_process, pc);
-  // tid = thread_create(file_name, PRI_DEFAULT, start_process, pc);
 
   sema_down(&(pc->await_child));
 
@@ -63,17 +61,23 @@ process_execute (const char *file_name)
     return tid;
   }
 
+  if(!(pc->load)) {
+    pc->child_pid = TID_ERROR;
+    return TID_ERROR;
+  }
+
   pc->child_pid = tid;
 
-  list_push_back(&(pc->parent_thread->child_threads), &(thread_current()->elem));
+  list_push_back(&(thread_current()->child_threads), &(pc->elem));
 
   return tid;
 }
 
+
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_) // vi kanske kan ändra namn på file_name så vi vet att det är vår parent_child
+start_process (void *file_name_)
 {
   struct parent_child *pc = file_name_;
   struct intr_frame if_;
@@ -86,6 +90,7 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (pc->fn_copy, &if_.eip, &if_.esp);
 
+  pc->load = success;
 
   thread_current()->pc = pc;
   /* If load failed, quit. */
@@ -120,45 +125,29 @@ start_process (void *file_name_) // vi kanske kan ändra namn på file_name så 
 int
 process_wait (tid_t child_tid) 
 {
-  // printf("IN PROCESS_WAIT\n");
-  struct thread *cur = thread_current();
-  struct parent_child *pc;
-  int exit_status = -1;
+  struct thread *current_thread = thread_current();
 
+  struct parent_child *pc = NULL;
 
-  struct thread *t;
   struct list_elem *e;
-  for (e = list_begin(&cur->child_threads); e != list_end(&cur->child_threads); e = list_next(e)) {
-    // printf("in loop\n");
-    t = list_entry(e, struct thread, elem);
-    exit_status = t->exit_status;
+  for (e = list_begin (&thread_current()->child_threads); e != list_end (&thread_current()->child_threads); e = list_next (e)) {
+    struct parent_child *pc_ = list_entry (e, struct parent_child, elem);
 
-    if(exit_status != -1) {
-      // printf("in if\n");
-      t->exit_status = -1;
-      sema_down(&(t->thread_wait));
+    if (pc_->child_pid == child_tid) {
+      pc = pc_;
+      break;
     }
-
-
-    return exit_status;
-    
-  //   printf("LOOP\n");
-  //   if (t->pc != NULL) {
-  //     printf("FIRST IF\n");
-  //     if (t->pc->child_pid == child_tid) { //kanske krävs en en &&
-  //       printf("SECOND IF\n");
-  //       if (t->pc->exit_status != -1) {
-  //         printf("THIRD IF\n");
-          
-
-  //       }
-  //       // exit_status = t->pc->exit_status;
-  //       // t->pc->exit_status = -1;
-  //       // return exit_status;
-  //     }
-  //   }
   }
-  
+
+  int exit_status = -1;
+  if (pc != NULL) {
+    if (pc->alive_count == 2){
+      sema_down(&pc->await_child);
+    }
+    exit_status = pc->exit_status;
+    pc->exit_status = -1;
+  }
+
   return exit_status;
 }
 
@@ -167,40 +156,32 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
-  uint32_t *pd;
-
-  // printf("BERFORE SEMA UP IN PROCESS_EXIT\n");
-  sema_up(&(cur->thread_wait));
-  
+  uint32_t *pd;  
 
   if (cur->pc != NULL) {
-  sema_up(&(cur->pc->parent_thread->thread_wait));  
+    lock_acquire(&(cur->pc->lock));
+    cur->pc->alive_count--;
+    lock_release(&(cur->pc->lock));
 
-  lock_acquire(&(cur->pc->lock));
-  cur->pc->alive_count--;
-  lock_release(&(cur->pc->lock));
-
-  if (cur->pc->alive_count == 0) {
-    free(cur->pc);
-  }
-  else {
-    printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
-    sema_up(&(cur->pc->await_child)); // Kanske ska vara här
-  }
-  
-  
-  struct thread *t;
-  while (!list_empty(&cur->child_threads)) {
-    t = list_entry(list_begin(&cur->child_threads), struct thread, elem);
-    t->pc->alive_count--;
-
-
-    if (t->pc->alive_count == 0) {
-      list_pop_front(&t->child_threads);
-      free(t->pc);
+    if (cur->pc->alive_count == 0) {
+      free(cur->pc);
     }
-  } 
+    else {
+      printf("%s: exit(%d)\n", thread_name(), cur->pc->exit_status);
+      sema_up(&(cur->pc->await_child));
+    }
+    
+    struct parent_child *pc;
+    while (!list_empty(&cur->child_threads)) {
+      pc = list_entry(list_begin(&cur->child_threads), struct parent_child, elem);
+      pc->alive_count--;
 
+
+      if (pc->alive_count == 0) {
+        list_pop_front(&cur->child_threads);
+        free(pc);
+      }
+    } 
   }
   
   /* Destroy the current process's page directory and switch back

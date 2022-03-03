@@ -16,6 +16,9 @@ syscall_init (void)
 }
 
 void validate_pointer(const void *p) {
+  if (p == NULL) {
+    exit(-1);
+  }
   if (is_user_vaddr(p) && pagedir_get_page(thread_current()->pagedir, p) != NULL) {
     return;
   }
@@ -23,15 +26,7 @@ void validate_pointer(const void *p) {
 }
 
 void validate_string(const char* string) {
-  // if (string == NULL) {
-  //   exit(-1);
-  // }
-  // else {
-  //   for (char* str = string; str!='/0'; str++) {
-  //     validate_pointer(str);
-  //   }
-  // }
-  if (string == NULL) { // Funkar bättre men funkar inte helt
+  if (string == NULL) {
     exit(-1);
   }
   validate_pointer(string);
@@ -135,6 +130,35 @@ int wait(pid_t pid) {
   return process_wait(pid);
 }
 
+void seek(int fd, unsigned position) {
+  struct file *file = thread_current()->opened_files[fd];
+  if (file != NULL)
+  {
+    file_seek(file, position);
+  }
+  return;
+}
+
+unsigned tell(int fd) {
+  struct file *file = thread_current()->opened_files[fd];
+  if (file != NULL) {
+    return file_tell(file);
+  }
+  return -1;
+}
+
+int filesize(int fd) {
+  struct file *file = thread_current()->opened_files[fd];
+  if(file != NULL) {
+    return file_length(file);
+  }
+  return -1;
+}
+
+bool remove(const char *file_name) {
+  return filesys_remove(file_name);
+}
+
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
@@ -226,6 +250,41 @@ syscall_handler (struct intr_frame *f UNUSED)
       validate_pointer(f->esp+4);
       pid_t pid = *(pid_t*) (f->esp+4);
       f->eax = wait(pid);
+      break;
+    }
+
+    case SYS_SEEK:
+    {
+      validate_pointer(f->esp+4);
+      validate_pointer(f->esp+8);
+      int fd = *(int*) (f->esp+4);
+      unsigned position = *(unsigned*) (f->esp+8);
+      seek(fd, position);
+      break;
+    }
+
+    case SYS_TELL:
+    {
+      validate_pointer(f->esp+4);
+      int fd = *(int*) (f->esp+4);
+      f->eax = tell(fd);
+      break;
+    }
+
+    case SYS_FILESIZE: 
+    {
+      validate_pointer(f->esp+4);
+      int fd = *(int*) (f->esp+4);
+      f->eax = filesize(fd);
+      break;
+    }
+
+    case SYS_REMOVE:
+    {
+      validate_pointer(f->esp+4);
+      const char *file_name = *(char**) (f->esp+4);
+      validate_string(file_name);
+      f->eax = remove(file_name);
       break;
     }
 

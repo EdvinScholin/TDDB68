@@ -14,13 +14,14 @@ void process_activate (void);
 struct parent_child {
     int exit_status;
     int alive_count;
-    struct thread *parent_thread;
     pid_t child_pid;
     char *fn_copy;
-    bool child_wait;
+    bool load;
 
     struct semaphore await_child;
     struct lock lock;
+
+    struct list_elem elem;
 };
 
 #endif /* userprog/process.h */

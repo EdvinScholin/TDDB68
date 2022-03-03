@@ -445,8 +445,6 @@ init_thread (struct thread *t, const char *name, int priority)
 
 #ifdef USERPROG
   list_init(&(t->child_threads));
-  sema_init(&(t->thread_wait), 0);
-  t->pc = NULL;
 #endif
 }
 
