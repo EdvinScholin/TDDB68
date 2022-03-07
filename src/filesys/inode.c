@@ -6,6 +6,7 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -37,6 +38,13 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
+
+    // Based on wikipedia readers writers problem
+    int read_count;
+    struct semaphore resource;
+    struct semaphore rmutex;
+    struct semaphore service_queue;
+
   };
 
 /* Returns the disk sector that contains byte offset POS within
@@ -57,10 +65,13 @@ byte_to_sector (const struct inode *inode, off_t pos)
    returns the same `struct inode'. */
 static struct list open_inodes;
 
+struct lock lock_for_inode;
+
 /* Initializes the inode module. */
 void
 inode_init (void) 
 {
+  lock_init(&lock_for_inode);
   list_init (&open_inodes);
 }
 
@@ -72,6 +83,7 @@ inode_init (void)
 bool
 inode_create (disk_sector_t sector, off_t length)
 {
+  lock_acquire(&lock_for_inode);
   struct inode_disk *disk_inode = NULL;
   bool success = false;
 
@@ -102,6 +114,7 @@ inode_create (disk_sector_t sector, off_t length)
         } 
       free (disk_inode);
     }
+  lock_release(&lock_for_inode);
   return success;
 }
 
@@ -132,11 +145,20 @@ inode_open (disk_sector_t sector)
     return NULL;
 
   /* Initialize. */
+
+
+  sema_init(&(inode->resource), 1);
+  sema_init(&(inode->rmutex), 1);
+  sema_init(&(inode->service_queue), 1);
+  inode->read_count = 0;
+
   list_push_front (&open_inodes, &inode->elem);
   inode->sector = sector;
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  
+    
   disk_read (filesys_disk, inode->sector, &inode->data);
   return inode;
 }
@@ -203,6 +225,17 @@ inode_remove (struct inode *inode)
 off_t
 inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) 
 {
+  
+  sema_down(&(inode->service_queue));
+  sema_down(&(inode->rmutex));
+  inode->read_count++;
+  if(inode->read_count == 1) {
+    sema_down(&(inode->resource));
+  }
+  sema_up(&(inode->service_queue));
+  sema_up(&(inode->rmutex));
+  
+  
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
@@ -249,6 +282,13 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     }
   free (bounce);
 
+  sema_down(&(inode->rmutex));
+  inode->read_count--;
+  if(inode->read_count == 0) {
+    sema_up(&(inode->resource));
+  }
+  sema_up(&(inode->rmutex));
+
   return bytes_read;
 }
 
@@ -261,6 +301,10 @@ off_t
 inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 
 {
+  sema_down(&(inode->service_queue));
+  sema_down(&(inode->resource));
+  sema_up(&(inode->service_queue));
+  
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
@@ -316,6 +360,10 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       bytes_written += chunk_size;
     }
   free (bounce);
+
+  sema_up(&(inode->resource));
+
+
 
   return bytes_written;
 }
