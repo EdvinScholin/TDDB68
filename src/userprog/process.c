@@ -125,12 +125,11 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  struct thread *current_thread = thread_current();
-
+  struct thread *curr = thread_current();
   struct parent_child *pc = NULL;
 
   struct list_elem *e;
-  for (e = list_begin (&thread_current()->child_threads); e != list_end (&thread_current()->child_threads); e = list_next (e)) {
+  for (e = list_begin (&curr->child_threads); e != list_end (&curr->child_threads); e = list_next (e)) {
     struct parent_child *pc_ = list_entry (e, struct parent_child, elem);
 
     if (pc_->child_pid == child_tid) {
